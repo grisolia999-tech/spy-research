@@ -51,7 +51,7 @@ class SampleQuoteSource:
     name = SAMPLE_SOURCE
 
     def __init__(self, quotes: Optional[Dict[OptionContract, OptionQuote]] = None) -> None:
-        self._quotes = dict(quotes) if quotes else {c: sample_quote(c) for c in SAMPLE_CONTRACTS}
+        self._quotes = dict(quotes) if quotes is not None else {c: sample_quote(c) for c in SAMPLE_CONTRACTS}
 
     def latest(self, contract: OptionContract) -> Optional[OptionQuote]:
         return self._quotes.get(contract)
