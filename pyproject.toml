@@ -1,0 +1,10 @@
+[project]
+name = "spy-research"
+version = "0.0.1"
+description = "SPY 0DTE options research and paper trading scaffold"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
