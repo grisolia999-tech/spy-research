@@ -1,0 +1,40 @@
+{
+  "_comment": "PLACEHOLDER VALUES, untested starting points chosen for a first manual paper test. They are not tuned and not a recommendation. Change freely. Paper results never establish live profitability.",
+  "mode": "paper",
+  "underlying": "SPY",
+  "allowed_rights": ["CALL", "PUT"],
+  "profit_target": 0.15,
+  "entry_rules": "LIQUIDITY_WINDOW_A",
+  "rule_params": {
+    "_comment": "Rule A: time window + displayed size + premium band. No directional opinion. Band starts at 1.00 because round-trip friction makes a net 15% target unreachable on cheap premiums.",
+    "entry_start": "09:45",
+    "entry_end": "14:30",
+    "min_bid_size": 5,
+    "min_ask_size": 5,
+    "min_ask": 1.00,
+    "max_ask": 3.00
+  },
+  "max_loss_per_trade": 300.0,
+  "stop_loss_fraction": 0.50,
+  "daily_loss_limit": 300.0,
+  "quote_max_age_seconds": 90,
+  "_quote_max_age_note": "90s suits hand-typed quotes. Drop to a few seconds if a real feed is ever connected.",
+  "max_spread": 0.05,
+  "_max_spread_note": "absolute dollars per share",
+  "latest_exit_time": "15:30",
+  "session_timezone": "America/New_York",
+  "max_open_positions": 1,
+  "max_contracts_per_trade": 1,
+  "max_entries_per_session": 2,
+  "fees": {
+    "_comment": "Verify against your broker's schedule. Regulatory fees on sells are not modeled.",
+    "per_contract": 0.65,
+    "per_order": 0.0
+  },
+  "slippage_ticks": 1,
+  "tick_size": 0.01,
+  "contracts": [
+    {"_comment": "Edit each morning: same-day expiry, strikes near the SPY price you see.", "expiry": "2026-10-05", "strike": 0, "right": "CALL"},
+    {"expiry": "2026-10-05", "strike": 0, "right": "PUT"}
+  ]
+}

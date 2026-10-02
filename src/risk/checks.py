@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 from zoneinfo import ZoneInfo
 
-from data.quotes import OptionQuote
+from data.quotes import OptionContract, OptionQuote, Right
 
 REQUIRED_PARAMETERS: Sequence[str] = (
     "entry_rules",
@@ -39,6 +39,8 @@ class RiskConfig:
     session_timezone: str = "America/New_York"
     max_open_positions: int = 1
     max_contracts_per_trade: int = 1
+    max_entries_per_session: int = 2
+    stop_loss_fraction: float = 0.5
     raw: Dict[str, Any] = field(default_factory=dict, compare=False)
 
     @classmethod
@@ -60,11 +62,24 @@ class RiskConfig:
         hh, mm = self.latest_exit_time.split(":")
         return time(int(hh), int(mm))
 
+    def contracts(self) -> List[OptionContract]:
+        """Contracts listed in config. Strikes are chosen by a person, never by code."""
+        out = []
+        for c in self.raw.get("contracts") or []:
+            out.append(OptionContract(
+                underlying=str(c.get("underlying", self.raw.get("underlying", "SPY"))),
+                expiry=date.fromisoformat(c["expiry"]),
+                strike=float(c["strike"]),
+                right=Right(c["right"].upper()),
+            ))
+        return out
+
 
 @dataclass(frozen=True)
 class SessionState:
     realized_pnl: float = 0.0      # net of fees, negative when losing
     open_positions: int = 0
+    entries_this_session: int = 0
 
 
 @dataclass(frozen=True)
@@ -102,6 +117,8 @@ def check_eligibility(
         return RiskResult(False, "SIZE", f"quantity {quantity} outside 1..{config.max_contracts_per_trade}")
     if state.open_positions >= config.max_open_positions:
         return RiskResult(False, "POSITIONS", f"open positions {state.open_positions} at limit {config.max_open_positions}")
+    if state.entries_this_session >= config.max_entries_per_session:
+        return RiskResult(False, "ENTRIES", f"entries this session {state.entries_this_session} at limit {config.max_entries_per_session}")
 
     if quote is None:
         return RiskResult(False, "NO_DATA", "no quote available")
@@ -117,6 +134,7 @@ def check_eligibility(
     if quote.ask_size < quantity:
         return RiskResult(False, "SIZE", f"ask size {quote.ask_size} below quantity {quantity}")
 
+    # For a long option the premium paid is the only guaranteed maximum loss. Soft stops can gap.
     worst_case = quote.ask * 100 * quantity
     if worst_case > config.max_loss_per_trade:
         return RiskResult(False, "MAX_LOSS", f"premium at risk {worst_case:.2f} exceeds max loss {config.max_loss_per_trade:.2f}")

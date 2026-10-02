@@ -13,7 +13,7 @@ from signals.rules import Action, ExitParams, NoEntryRule, ProfitTargetExit
 C = SAMPLE_CONTRACTS[0]
 FEES = FeeModel(per_contract=0.65)
 SLIP = SlippageModel(ticks=1, tick_size=0.01)
-PARAMS = ExitParams(profit_target=0.15, max_loss_per_trade=30.0, latest_exit_time=time(15, 30))
+PARAMS = ExitParams(profit_target=0.15, stop_loss_fraction=0.20, latest_exit_time=time(15, 30))
 
 
 class EntryRuleTests(unittest.TestCase):
@@ -37,10 +37,16 @@ class ExitRuleTests(unittest.TestCase):
         self.assertEqual(s.action, Action.EXIT)
         self.assertIn("profit target", s.reason)
 
-    def test_exits_on_max_loss(self):
-        s = self.rule.evaluate(self.entry, sample_quote(bid=0.95, ask=1.01), SAMPLE_NOW)
+    def test_exits_on_soft_stop(self):
+        # entry 1.27; sell at 0.99 -> net -29.30 on 127 = -23% <= -20%
+        s = self.rule.evaluate(self.entry, sample_quote(bid=1.00, ask=1.06), SAMPLE_NOW)
         self.assertEqual(s.action, Action.EXIT)
-        self.assertIn("max loss", s.reason)
+        self.assertIn("soft stop", s.reason)
+
+    def test_holds_above_soft_stop(self):
+        # sell at 1.09 -> net -19.30 on 127 = -15.2% > -20%
+        s = self.rule.evaluate(self.entry, sample_quote(bid=1.10, ask=1.16), SAMPLE_NOW)
+        self.assertEqual(s.action, Action.NONE)
 
     def test_exits_at_latest_exit_time_even_without_quote(self):
         late = SAMPLE_NOW + timedelta(hours=5)

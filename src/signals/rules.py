@@ -45,16 +45,80 @@ class NoEntryRule:
         return Signal(Action.NONE, self.rule_id, "entry rules not configured")
 
 
+def parse_hhmm(value: str) -> time:
+    hh, mm = value.split(":")
+    return time(int(hh), int(mm))
+
+
+@dataclass(frozen=True)
+class LiquidityWindowParams:
+    """Rule A parameters. All are placeholders to be set in config; none is a tuned value."""
+
+    entry_start: time
+    entry_end: time
+    min_bid_size: int
+    min_ask_size: int
+    min_ask: float
+    max_ask: float
+    session_timezone: str = "America/New_York"
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "LiquidityWindowParams":
+        return cls(
+            entry_start=parse_hhmm(d["entry_start"]),
+            entry_end=parse_hhmm(d["entry_end"]),
+            min_bid_size=int(d["min_bid_size"]),
+            min_ask_size=int(d["min_ask_size"]),
+            min_ask=float(d["min_ask"]),
+            max_ask=float(d["max_ask"]),
+            session_timezone=str(d.get("session_timezone", "America/New_York")),
+        )
+
+
+class LiquidityWindowEntry:
+    """Rule A: time-window liquidity gate with a premium band.
+
+    Enters long when `now` is inside [entry_start, entry_end) in the session timezone, the
+    quote is two-sided, both displayed sizes meet minimums, and the ask lies inside
+    [min_ask, max_ask]. The premium band exists because round-trip friction (fees, spread,
+    slippage) is a larger share of cheap premiums, which makes a net 15% target unreachable.
+
+    This rule has NO directional opinion and is NOT a profitability signal. It only limits
+    paper entries to conditions where simulated fills are least unrealistic.
+    """
+
+    rule_id = "LIQUIDITY_WINDOW_A"
+
+    def __init__(self, params: LiquidityWindowParams) -> None:
+        self.params = params
+
+    def evaluate(self, quote: OptionQuote, now: datetime) -> Signal:
+        p = self.params
+        local = now.astimezone(ZoneInfo(p.session_timezone)).time()
+        if not (p.entry_start <= local < p.entry_end):
+            return Signal(Action.NONE, self.rule_id, f"outside entry window {p.entry_start:%H:%M}-{p.entry_end:%H:%M}")
+        if not quote.is_two_sided:
+            return Signal(Action.NONE, self.rule_id, "quote not two-sided")
+        if quote.bid_size < p.min_bid_size or quote.ask_size < p.min_ask_size:
+            return Signal(Action.NONE, self.rule_id, f"size {quote.bid_size}x{quote.ask_size} below {p.min_bid_size}x{p.min_ask_size}")
+        if quote.ask < p.min_ask or quote.ask > p.max_ask:
+            return Signal(Action.NONE, self.rule_id, f"ask {quote.ask:.2f} outside premium band {p.min_ask:.2f}-{p.max_ask:.2f}")
+        return Signal(Action.ENTER_LONG, self.rule_id, "window, sizes and premium band satisfied", 1)
+
+
 @dataclass(frozen=True)
 class ExitParams:
     profit_target: float          # fraction of entry premium, e.g. 0.15
-    max_loss_per_trade: float     # dollars, positive number
+    stop_loss_fraction: float     # soft stop: exit when net return <= -fraction, e.g. 0.50
     latest_exit_time: time        # wall-clock in session_timezone
     session_timezone: str = "America/New_York"
 
 
 class ProfitTargetExit:
-    """Deterministic exit: profit target, max loss, or latest exit time.
+    """Deterministic exit: profit target, soft stop, or latest exit time.
+
+    The soft stop is not a guarantee. A 0DTE option can gap through it between quotes. The
+    hard maximum loss for a long option is the premium paid, enforced at entry by risk.
 
     The profit check uses a SIMULATED sell fill at the bid minus slippage, net of fees.
     It never uses the midpoint.
@@ -83,10 +147,10 @@ class ProfitTargetExit:
                 f"profit target {self.params.profit_target:.2%} reached (net {result.return_on_premium:.2%})",
                 entry.quantity,
             )
-        if result.net_pnl <= -self.params.max_loss_per_trade:
+        if result.return_on_premium <= -self.params.stop_loss_fraction:
             return Signal(
                 Action.EXIT, self.rule_id,
-                f"max loss {self.params.max_loss_per_trade:.2f} reached (net {result.net_pnl:.2f})",
+                f"soft stop {self.params.stop_loss_fraction:.0%} reached (net {result.return_on_premium:.2%})",
                 entry.quantity,
             )
         return Signal(Action.NONE, self.rule_id, f"hold (net {result.return_on_premium:.2%})")

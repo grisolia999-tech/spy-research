@@ -29,14 +29,26 @@ and must never be used to judge strategy performance.
 7. Exit rules check profit target, max loss, and latest exit time against fresh quotes.
 8. `src/journal` records alerts, trades, and decisions as JSON lines for later review.
 
+## Placeholder decisions (config/paper.json)
+Chosen so a first manual paper session can run. None is tuned, tested, or recommended.
+- Few trades: one open position, at most two entries per session, one contract per trade.
+- Rule A: entry window 09:45 to 14:30 ET, displayed size at least 5 on both sides, ask between
+  $1.00 and $3.00. The band exists because friction dominates cheap premiums.
+- Hard max loss = premium cap $300 per trade (long option, only guaranteed maximum).
+  Soft stop at 50% net loss, which can be gapped through.
+- Daily loss limit $300. Quote freshness 90 s for hand-typed quotes. Spread limit $0.05 absolute.
+  Latest exit 15:30 ET. Fees $0.65 per contract per side, unverified.
+
 ## Unresolved decisions
-- Market data provider and its licensing, latency, and timestamp semantics.
-- Entry rule definition. None is proposed; `NoEntryRule` is the only implementation.
-- Maximum loss per trade, daily loss limit, quote freshness limit, spread limit, and latest
-  exit time. All unset in the example config and all block eligibility until set.
-- Spread limit unit: absolute dollars, percent of mid, or both.
-- Slippage model: fixed ticks beyond the touch is the placeholder; size-aware fills are not modeled.
-- Fee schedule: per-contract and per-order values must come from the actual broker used for paper.
-- Session timezone and holiday handling. Placeholder is `America/New_York`, no holiday calendar.
-- Whether partial fills (order quantity above displayed size) are allowed or rejected.
+- Market data provider and its licensing, latency, and timestamp semantics. Manual CSV is the
+  only source now, and it cannot support more than a quote per contract every 30 to 60 s.
+- Whether Rule A stays, and what any directional rule would be. Rule A has no view.
+- Quote freshness must tighten to seconds if a real feed is connected.
+- Spread limit unit: absolute dollars kept for now; percent of mid rejected for phase one.
+- Slippage model: fixed one tick beyond the touch; size-aware fills are not modeled.
+- Fee schedule: verify broker per-contract fee; regulatory fees on sells are not modeled.
+- Holiday and early-close handling. None exists; `latest_exit_time` is wrong on 13:00 ET closes.
+- Partial fills: entries are all-or-nothing by the size check; an exit that cannot fill in full
+  stays pending and retries next tick.
 - Evaluation metric for the 15% hypothesis: per-trade hit rate, expectancy, or distribution.
+  One manual session cannot answer it; it only exercises the pipeline on real numbers.
