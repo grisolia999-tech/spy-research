@@ -52,6 +52,12 @@ class DefaultConfigTests(unittest.TestCase):
         )
         kinds = [e["kind"] for e in journal.entries]
         self.assertEqual(kinds, ["alert", "decision"] * len(SAMPLE_CONTRACTS))
+        self.assertEqual(result.journal_entries, journal.entries)
+        first = result.outcomes[0]
+        self.assertEqual(first.signal.action, Action.NONE)
+        self.assertEqual(first.risk.code, "NO_SIGNAL")
+        self.assertIsNone(first.order)
+        self.assertIsNone(first.fill)
         self.assertEqual(journal.entries[1]["action"], "NONE")
         self.assertIn("entry rules not configured", journal.entries[1]["reasons"])
 
@@ -77,6 +83,11 @@ class StubEntryTests(unittest.TestCase):
         self.assertEqual(fill.fees, 0.65)
         self.assertEqual(result.alerts[0].status, "ELIGIBLE")
         self.assertEqual(result.alerts[0].risk_check, "PASS")
+        outcome = result.outcomes[0]
+        self.assertEqual(outcome.signal.action, Action.ENTER_LONG)
+        self.assertTrue(outcome.risk.ok)
+        self.assertIs(outcome.fill, fill)
+        self.assertEqual(len(outcome.journal_entries), 2)
         self.assertEqual(journal.entries[1]["risk_code"], "OK")
         self.assertTrue(any("simulated buy 1 @ 1.27" in r for r in journal.entries[1]["reasons"]))
 
@@ -103,6 +114,7 @@ class StubEntryTests(unittest.TestCase):
                           entry_rule=StubEnterRule())
         self.assertEqual(result.alerts[0].risk_check, "BLOCK:NO_DATA")
         self.assertIn("| n/a | n/a |", result.alert_lines()[0])
+        self.assertIsNone(result.outcomes[0].signal)
 
 
 if __name__ == "__main__":
