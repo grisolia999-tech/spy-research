@@ -31,6 +31,28 @@ with `time` as `HH:MM:SS` in Eastern time. Example row:
 The terminal prints one alert line per evaluation and `journal-<date>.jsonl` records every
 alert, decision, and simulated trade. Stop with Ctrl-C.
 
+## Running with Schwab quotes (market data only, no orders)
+Requires a Schwab individual developer app with the Market Data product. Set, on your machine only:
+
+```
+export SCHWAB_APP_KEY="..."
+export SCHWAB_APP_SECRET="..."
+export SCHWAB_CALLBACK_URL="https://127.0.0.1"   # exactly as registered
+```
+
+Then, once a week, log in; then verify the field mapping once; then run:
+
+```
+python run_paper.py --source schwab --login
+python run_paper.py --source schwab --probe
+python run_paper.py --source schwab --interval 3
+```
+
+Set `quote_max_age_seconds` to about 5 in `config/paper.json` for an API feed. Tokens are saved
+to `~/.spy-research/schwab_tokens.json`; every raw response is appended to `data/quotes-<date>.jsonl`
+for replay. Both locations are ignored by git. If the weekly refresh token expires the loop stops
+and says so rather than serving stale data.
+
 Why the premium band and few trades: round-trip friction (two fees, the spread, slippage) is
 paid win or lose. On a $0.50 option a net 15% needs the bid to rise about 36%; on a $2.00
 option about 20%. Entries are capped at two per session and one open position.
@@ -44,7 +66,7 @@ option about 20%. Entries are capped at two per session and one open position.
 - `docs/requirements.md` data needs, workflow, unresolved decisions
 
 ## Current limitations
-- No market data provider. Quotes are synthetic (`SAMPLE_SYNTHETIC`) or hand-typed (`MANUAL_CSV`).
+- Quotes come from synthetic data (`SAMPLE_SYNTHETIC`), hand-typed CSV (`MANUAL_CSV`), or Schwab polling (`SCHWAB_API`). The Schwab field mapping is confirmed with `--probe`; no streaming yet.
 - Rule A is a liquidity gate, not a strategy. It has no view on direction.
 - No live broker, no order routing, no credentials. `run_paper.py` loops on the machine clock.
 - The soft stop can be gapped through; the hard maximum loss is the premium paid.
