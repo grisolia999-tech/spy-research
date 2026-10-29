@@ -7,13 +7,16 @@ Safety design:
   * Account numbers are never stored in the repo: the encrypted account hash is fetched from
     /accounts/accountNumbers at runtime.
 
-UNVERIFIED against Schwab's official Accounts-and-Trading spec (only public wrapper docs were
-available when written). Re-check each item marked UNVERIFIED before the first live arm:
-  - accountNumbers endpoint and field name `hashValue`
-  - instruction names BUY_TO_OPEN / SELL_TO_CLOSE
-  - order id taken from the `Location` header of the 201 response
-  - status names, positions field layout, required query params of GET /orders
-`python3 run_paper.py --probe-broker` (read-only) is meant to confirm these with real responses.
+Checked 2026-10-29 against Schwab's official "Accounts and Trading Production" spec (OAS3):
+  CONFIRMED: GET /accounts/accountNumbers -> [{accountNumber, hashValue}]; instructions BUY_TO_OPEN and
+  SELL_TO_CLOSE exist; POST /accounts/{hash}/orders -> 201 with a Location header (link to the new order);
+  GET /accounts/{hash}/orders requires fromEnteredTime and toEnteredTime; order fields filledQuantity,
+  status, statusDescription, orderId; execution leg fields price and quantity; position field
+  longQuantity; GET /accounts/{hash}?fields=positions; account has a `positions` list.
+  STILL UNVERIFIED (name hidden or not shown by the spec viewer; confirm with the first real response):
+  the order-activity list key (`orderActivityCollection`), the `securitiesAccount` wrapper key on
+  /accounts/{hash}, the exact option `symbol` string in positions, and the exact Location URL shape.
+Nothing here has been called against the live API yet.
 """
 from __future__ import annotations
 
@@ -31,15 +34,14 @@ from paper.sim import OrderSide
 from schwabapi.auth import SchwabAuth, SchwabLoginRequired
 
 TRADER_BASE = "https://api.schwabapi.com/trader/v1"
-INSTRUCTION = {OrderSide.BUY: "BUY_TO_OPEN", OrderSide.SELL: "SELL_TO_CLOSE"}  # UNVERIFIED
-_STATE = {  # UNVERIFIED mapping of Schwab status strings
-    "FILLED": OrderState.FILLED, "CANCELED": OrderState.CANCELED, "REJECTED": OrderState.REJECTED,
-    "EXPIRED": OrderState.EXPIRED, "WORKING": OrderState.WORKING, "QUEUED": OrderState.WORKING,
-    "ACCEPTED": OrderState.WORKING, "PENDING_ACTIVATION": OrderState.WORKING,
-    "AWAITING_PARENT_ORDER": OrderState.WORKING, "AWAITING_CONDITION": OrderState.WORKING,
-    "PENDING_CANCEL": OrderState.WORKING, "PENDING_REPLACE": OrderState.WORKING,
-    "NEW": OrderState.WORKING, "REPLACED": OrderState.CANCELED,
-}
+INSTRUCTION = {OrderSide.BUY: "BUY_TO_OPEN", OrderSide.SELL: "SELL_TO_CLOSE"}
+# Schwab statuses (spec, 2026-10-29): AWAITING_PARENT_ORDER, AWAITING_CONDITION, AWAITING_STOP_CONDITION,
+# AWAITING_MANUAL_REVIEW, ACCEPTED, AWAITING_UR_OUT, PENDING_ACTIVATION, QUEUED, WORKING, REJECTED,
+# PENDING_CANCEL, CANCELED, PENDING_REPLACE, REPLACED, FILLED, EXPIRED, NEW, AWAITING_RELEASE_TIME,
+# PENDING_ACKNOWLEDGEMENT, PENDING_RECALL, UNKNOWN. Only these are final; anything else (including
+# a status Schwab adds later) counts as OPEN so ./halt still tries to cancel it.
+_FINAL = {"FILLED": OrderState.FILLED, "CANCELED": OrderState.CANCELED, "REPLACED": OrderState.CANCELED,
+          "REJECTED": OrderState.REJECTED, "EXPIRED": OrderState.EXPIRED}
 
 
 def order_body(req: OrderRequest) -> dict:
@@ -55,7 +57,7 @@ def order_body(req: OrderRequest) -> dict:
 
 
 def parse_order(o: dict) -> OrderResult:
-    state = _STATE.get(str(o.get("status", "")).upper(), OrderState.UNKNOWN)
+    state = _FINAL.get(str(o.get("status", "")).upper(), OrderState.WORKING)
     filled = int(o.get("filledQuantity") or 0)
     if state is OrderState.WORKING and filled > 0:
         state = OrderState.PARTIAL
@@ -99,7 +101,7 @@ class SchwabBroker:
         if status != 201:
             raise BrokerError(f"unexpected status {status} placing order")
         loc = headers.get("Location") or headers.get("location") or ""
-        oid = loc.rstrip("/").rsplit("/", 1)[-1]  # UNVERIFIED
+        oid = loc.rstrip("/").rsplit("/", 1)[-1]
         if not oid:
             raise BrokerError("order accepted but no order id in Location header; check Schwab before retrying")
         return OrderResult(oid, OrderState.WORKING, message="submitted", kind="BROKER")
@@ -129,7 +131,7 @@ class SchwabBroker:
     def open_orders(self) -> List[OrderResult]:
         h = self._account_hash()
         now = self._clock()
-        q = urllib.parse.urlencode({  # UNVERIFIED: both times are required by the endpoint
+        q = urllib.parse.urlencode({  # both times are required by the endpoint (confirmed)
             "fromEnteredTime": (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
             "toEnteredTime": (now + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         })
@@ -140,7 +142,7 @@ class SchwabBroker:
         h = self._account_hash()
         _, _, body = self._call("GET", f"/accounts/{h}?fields=positions")
         out = []
-        for p in ((body or {}).get("securitiesAccount") or {}).get("positions") or []:  # UNVERIFIED layout
+        for p in ((body or {}).get("securitiesAccount") or {}).get("positions") or []:  # wrapper key UNVERIFIED
             ins = p.get("instrument") or {}
             if ins.get("assetType") != "OPTION":
                 continue
@@ -154,7 +156,7 @@ class SchwabBroker:
     def _account_hash(self) -> str:
         if self._hash:
             return self._hash
-        _, _, body = self._call("GET", "/accounts/accountNumbers")  # UNVERIFIED
+        _, _, body = self._call("GET", "/accounts/accountNumbers")
         if not body or not body[0].get("hashValue"):
             raise BrokerError("no account hash returned by Schwab")
         if len(body) > 1:

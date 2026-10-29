@@ -127,5 +127,15 @@ class SchwabBrokerTests(unittest.TestCase):
             SchwabBroker(FakeAuth(), None)
 
 
+class StatusMappingTests(unittest.TestCase):
+    def test_unlisted_and_waiting_statuses_stay_open(self):
+        from broker.schwab_orders import parse_order
+        for st in ("AWAITING_MANUAL_REVIEW", "PENDING_ACKNOWLEDGEMENT", "AWAITING_STOP_CONDITION", "NEW", "SOMETHING_NEW"):
+            self.assertTrue(parse_order({"orderId": 1, "status": st}).state.is_open, st)
+        for st, want in (("FILLED", OrderState.FILLED), ("CANCELED", OrderState.CANCELED), ("REPLACED", OrderState.CANCELED),
+                         ("REJECTED", OrderState.REJECTED), ("EXPIRED", OrderState.EXPIRED)):
+            self.assertEqual(parse_order({"orderId": 1, "status": st}).state, want)
+
+
 if __name__ == "__main__":
     unittest.main()

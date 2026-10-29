@@ -11,7 +11,7 @@ Paper results never establish live profitability.
 3. `./reauth` (imports key/secret to the Keychain, then the browser login). Delete `~/.spy-research/env.sh` after it works.
 4. `scripts/install_mac.sh` puts `Trading START.command` and `Trading STOP.command` on the Desktop.
 5. Read `config/limits.json`. Change what you disagree with. Only then set `"owner_reviewed": true`.
-6. Before the first live arm: the Schwab order format items marked UNVERIFIED in `src/broker/schwab_orders.py` must be checked against Schwab's official spec.
+6. Schwab order format: checked against the official spec on 2026-10-29. A few items remain UNVERIFIED (listed at the top of `src/broker/schwab_orders.py`); confirm them with the first real responses before the first live arm.
 
 ## Daily
 - **Start:** double-click `Trading START` (engine up, switch OFF).
