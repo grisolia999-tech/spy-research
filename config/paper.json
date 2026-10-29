@@ -74,6 +74,8 @@
     "orders": {
       "entry": "limit at ask + slippage, DAY",
       "exit": "limit at bid - slippage, DAY"
-    }
+    },
+    "max_signal_age_seconds": 120,
+    "order_timeout_seconds": 30
   }
 }
