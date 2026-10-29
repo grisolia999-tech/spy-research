@@ -46,12 +46,20 @@ def main() -> int:
     url = auth.authorize_url()
     print("\n1. Your browser will open Schwab's login. Log in and approve.\n"
           "2. The final page will fail to load (that is expected). Copy the FULL address from the address bar.\n"
-          "3. Paste it here quickly; the code in it works once and expires fast.\n")
+          "3. Come back here and press Return IMMEDIATELY; the code works once and expires within a minute.\n")
     try:
         subprocess.run(["open", url], check=False)
     except OSError:
         print("Open this address yourself:\n" + url)
-    redirect = getpass("Paste the full address (hidden): ")
+    input("When the page has failed to load: click the address bar, select all, COPY it (Cmd+C),\n"
+          "then come back here and press Return. ")
+    redirect = ""
+    try:
+        redirect = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    if "code=" not in redirect:
+        redirect = getpass("Clipboard had no login address. Paste it here now (hidden): ")
     auth.exchange_redirect(redirect)
     exp = auth.refresh_expires_at()
     print("Saved to the Keychain. Login valid until "

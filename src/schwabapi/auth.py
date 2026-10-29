@@ -181,6 +181,10 @@ class SchwabAuth:
                 return json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
             if form.get("grant_type") == "authorization_code":
-                raise ValueError(f"login code rejected by Schwab (HTTP {e.code}); codes are single-use, "
-                                 f"start again from the login URL") from e
+                try:
+                    why = e.read().decode()[:200]  # Schwab's error text; contains no secrets
+                except Exception:
+                    why = ""
+                raise ValueError(f"login code rejected by Schwab (HTTP {e.code}) {why}. Codes work once and "
+                                 f"expire in about a minute; start again and be quick.") from e
             raise
