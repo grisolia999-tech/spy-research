@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.jsonl
+.venv/
+/data/
+.secrets/
+schwab_tokens*.json
+logs/
+config/switch.json

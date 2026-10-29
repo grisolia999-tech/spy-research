@@ -1,0 +1,22 @@
+{
+  "_comment": "Copy to config/paper.json. Every null value is REQUIRED and blocks trade eligibility until set. Fees and slippage are placeholders, not a broker schedule.",
+  "mode": "paper",
+  "underlying": "SPY",
+  "allowed_rights": ["CALL", "PUT"],
+  "profit_target": 0.15,
+  "entry_rules": null,
+  "max_loss_per_trade": null,
+  "daily_loss_limit": null,
+  "quote_max_age_seconds": null,
+  "max_spread": null,
+  "latest_exit_time": null,
+  "session_timezone": "America/New_York",
+  "max_open_positions": 1,
+  "max_contracts_per_trade": 1,
+  "fees": {
+    "per_contract": 0.65,
+    "per_order": 0.0
+  },
+  "slippage_ticks": 1,
+  "tick_size": 0.01
+}
