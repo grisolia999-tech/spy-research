@@ -43,12 +43,15 @@ def main() -> int:
     ap.add_argument("--once", action="store_true", help="run a single tick and exit")
     ap.add_argument("--source", choices=["csv", "schwab"], default="csv")
     ap.add_argument("--login", action="store_true", help="schwab: run the browser login and save tokens, then exit")
+    ap.add_argument("--login-url", action="store_true", help="schwab: print the login URL only, then exit")
+    ap.add_argument("--login-finish", metavar="REDIRECT_URL", default=None,
+                    help="schwab: finish login with the full URL the browser landed on, then exit")
     ap.add_argument("--probe", action="store_true", help="schwab: fetch one raw quotes response, print it, exit")
     ap.add_argument("--record", default=None, help="schwab: raw response file (default data/quotes-<date>.jsonl)")
     args = ap.parse_args()
 
-    if args.source == "schwab" and args.login:
-        return schwab_login()
+    if args.source == "schwab" and (args.login or args.login_url or args.login_finish):
+        return schwab_login(url_only=args.login_url, finish_with=args.login_finish)
 
     config = RiskConfig.from_file(args.config)
     missing = config.missing_required()
@@ -134,17 +137,23 @@ def main() -> int:
     return 0
 
 
-def schwab_login() -> int:
+def schwab_login(url_only: bool = False, finish_with: str | None = None) -> int:
     try:
         auth = SchwabAuth.from_env()
     except Exception as e:
         print(f"BLOCKED: {e}")
         return 2
-    print("1. Open this URL in a browser, log in to Schwab, and approve the app:")
-    print("   " + auth.authorize_url())
-    print("2. The browser will land on your callback URL and look like a dead page. That is expected.")
-    print("3. Copy the FULL address from the browser bar and paste it here.")
-    pasted = input("Pasted URL: ")
+    if url_only:
+        print(auth.authorize_url())
+        return 0
+    if finish_with is None:
+        print("1. Open this URL in a browser, log in to Schwab, and approve the app:")
+        print("   " + auth.authorize_url())
+        print("2. The browser will land on your callback URL and look like a dead page. That is expected.")
+        print("3. Copy the FULL address from the browser bar and paste it here.")
+        pasted = input("Pasted URL: ")
+    else:
+        pasted = finish_with
     try:
         auth.exchange_redirect(pasted)
     except Exception as e:
