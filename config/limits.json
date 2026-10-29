@@ -1,0 +1,11 @@
+{
+  "_note": "DEFAULTS FOR YOU TO REVIEW. live cannot be armed until you set owner_reviewed to true after reading every value.",
+  "owner_reviewed": false,
+  "max_contracts_per_order": 1,
+  "max_position_contracts": 1,
+  "max_order_cost_usd": 150,
+  "max_orders_per_day": 6,
+  "max_daily_loss_usd": 100,
+  "trading_window": {"start": "09:36", "end": "15:30", "timezone": "America/New_York"},
+  "max_data_age_seconds": 5
+}
