@@ -80,7 +80,7 @@ def pull(auth, symbol: str, label: str, ftype: str, freq: int, chunk_days: int,
             for c in candles:
                 rows[c["datetime"]] = c
         cur_end = cur_start - 1
-        time.sleep(0.4)
+        time.sleep(0.6)  # market data limit reported as 120/min (UNVERIFIED)
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / f"{symbol}_{label}.csv"
     ordered = [rows[k] for k in sorted(rows)]
