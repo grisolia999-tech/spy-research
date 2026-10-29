@@ -2,7 +2,10 @@
   "_comment": "PLACEHOLDER VALUES, untested starting points chosen for a first manual paper test. They are not tuned and not a recommendation. Change freely. Paper results never establish live profitability.",
   "mode": "paper",
   "underlying": "SPY",
-  "allowed_rights": ["CALL", "PUT"],
+  "allowed_rights": [
+    "CALL",
+    "PUT"
+  ],
   "profit_target": 0.15,
   "entry_rules": "LIQUIDITY_WINDOW_A",
   "rule_params": {
@@ -11,11 +14,11 @@
     "entry_end": "14:30",
     "min_bid_size": 5,
     "min_ask_size": 5,
-    "min_ask": 1.00,
-    "max_ask": 3.00
+    "min_ask": 1.0,
+    "max_ask": 3.0
   },
   "max_loss_per_trade": 300.0,
-  "stop_loss_fraction": 0.50,
+  "stop_loss_fraction": 0.5,
   "daily_loss_limit": 300.0,
   "quote_max_age_seconds": 90,
   "_quote_max_age_note": "90s suits hand-typed quotes. Drop to a few seconds if a real feed is ever connected.",
@@ -34,7 +37,43 @@
   "slippage_ticks": 1,
   "tick_size": 0.01,
   "contracts": [
-    {"_comment": "Edit each morning: same-day expiry, strikes near the SPY price you see.", "expiry": "2026-10-05", "strike": 0, "right": "CALL"},
-    {"expiry": "2026-10-05", "strike": 0, "right": "PUT"}
-  ]
+    {
+      "_comment": "Edit each morning: same-day expiry, strikes near the SPY price you see.",
+      "expiry": "2026-10-05",
+      "strike": 0,
+      "right": "CALL"
+    },
+    {
+      "expiry": "2026-10-05",
+      "strike": 0,
+      "right": "PUT"
+    }
+  ],
+  "orb": {
+    "_comment": "ORB (opening range breakout) on SPY. First candidate from docs/research-2026-10-02.md. PLACEHOLDERS for you to review; untested, not tuned, not a recommendation.",
+    "or_start": "09:30",
+    "or_end": "09:35",
+    "entry_start": "09:36",
+    "entry_end": "11:00",
+    "min_range_dollars": 0.0,
+    "trigger": "first completed 1-minute close above range high (CALL) or below range low (PUT); one trade per day",
+    "contract": {
+      "expiry": "same_day",
+      "strike": "nearest_to_underlying",
+      "rights": "CALL on break up, PUT on break down"
+    },
+    "exit": {
+      "profit_target_net": 0.15,
+      "soft_stop_fraction": 0.5,
+      "latest_exit_time": "15:30",
+      "shadow_exit_for_comparison": {
+        "profit_target": 1.0,
+        "stop": 0.5
+      }
+    },
+    "orders": {
+      "entry": "limit at ask + slippage, DAY",
+      "exit": "limit at bid - slippage, DAY"
+    }
+  }
 }
